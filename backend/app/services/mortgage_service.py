@@ -63,25 +63,13 @@ class MortgageService:
         rid = None
         run_ids = []
         if persist:
-            for entry in results:
-                single = {
-                    "principal": principal,
-                    "plans": [entry],
-                    "best_index": 1,
-                    "runner_up_index": 1,
-                    "interest_gap": 0.0,
-                }
-                run_ids.append(
-                    runs.insert(
-                        self._c,
-                        "compare",
-                        {"principal": principal, "plan_index": entry["plan_index"],
-                         "annual_rate": entry["annual_rate"], "months": entry["months"]},
-                        {**entry, "compare_slice": True},
-                        loan_id,
-                    )
-                )
-            rid = run_ids[0] if run_ids else None
+            # 一次对照只钉一条记录：全部套别的输入与月供快照整体落库，禁止拆成多条
+            payload = {
+                "principal": principal,
+                "plans": [{"annual_rate": e["annual_rate"], "months": e["months"]} for e in results],
+            }
+            rid = runs.insert(self._c, "compare", payload, out, loan_id)
+            run_ids = [rid]
         return {"run_id": rid, "run_ids": run_ids, **out}
 
     def dashboard(self):
